@@ -84,7 +84,7 @@ jobs:
       #     echo "APP_VERSION=$VERSION_NUMBER" >> $GITHUB_ENV
       #     echo "✅ APP_VERSION set to $VERSION_NUMBER"
 
-      # Step 8.5: Register this fork as a new EAS project under your own account
+      # Step 8.5: Link this fork to your own EAS project (self-healing, reuses existing)
       - name: Initialize EAS project
         run: |
           ACCOUNT_OVERRIDE=""
@@ -102,23 +102,31 @@ jobs:
             exit 1
           fi
           echo "Using Expo account: $ACCOUNT"
-          node -e "const fs=require('fs');let s=fs.readFileSync('app.config.ts','utf8');s=s.replace(/projectId:\s*'[^']*'/, 'projectId: undefined');fs.writeFileSync('app.config.ts',s);"
-          INIT_OUT=$(eas init --account "$ACCOUNT" --non-interactive --force 2>&1 || true)
-          echo "$INIT_OUT"
-          PID=$(printf '%s' "$INIT_OUT" | grep -oE '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}' | tail -n 1 || true)
-          if [ -z "$PID" ]; then
-            echo "❌ eas init did not produce a new project ID — see output above"
-            exit 1
+          OFFICIAL_PID="80096eaf-3ad0-4b87-a466-15f04da1bacc"
+          CURRENT_PID=$(node -e 'const fs=require("fs");const s=fs.readFileSync("app.config.ts","utf8");const m=s.match(/projectId:\s*(?:"([^"]+)"|\x27([^\x27]+)\x27|([0-9a-fA-F-]{36}))/);console.log(m?(m[1]||m[2]||m[3]):"");')
+          echo "projectId currently in app.config.ts: [$CURRENT_PID]"
+          if printf '%s' "$CURRENT_PID" | grep -qE '^[0-9a-fA-F-]{36}$' && [ "$CURRENT_PID" != "$OFFICIAL_PID" ]; then
+            echo "✅ Reusing your own EAS project: $CURRENT_PID"
+            NEW_PID="$CURRENT_PID"
+          else
+            node -e 'const fs=require("fs");let s=fs.readFileSync("app.config.ts","utf8");s=s.replace(/projectId:\s*(?:"[^"]+"|\x27[^\x27]+\x27|[0-9a-fA-F-]{36})/, "projectId: undefined");fs.writeFileSync("app.config.ts",s);'
+            INIT_OUT=$(eas init --account "$ACCOUNT" --non-interactive --force 2>&1 || true)
+            echo "$INIT_OUT"
+            NEW_PID=$(printf '%s' "$INIT_OUT" | grep -oE '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}' | tail -n 1 || true)
+            if [ -z "$NEW_PID" ] || [ "$NEW_PID" = "$OFFICIAL_PID" ]; then
+              echo "❌ eas init did not produce a new project ID — see output above"
+              exit 1
+            fi
+            echo "✅ New EAS project ID: $NEW_PID"
           fi
-          echo "✅ New EAS project ID: $PID"
-          node -e "const fs=require('fs');let s=fs.readFileSync('app.config.ts','utf8');s=s.replace(/projectId:\s*undefined/, 'projectId: $PID');fs.writeFileSync('app.config.ts',s);"
+          NEW_PID="$NEW_PID" node -e 'const fs=require("fs");let s=fs.readFileSync("app.config.ts","utf8");s=s.replace(/projectId:\s*(?:"[^"]+"|\x27[^\x27]+\x27|[0-9a-fA-F-]{36})/, "projectId: "+JSON.stringify(process.env.NEW_PID));fs.writeFileSync("app.config.ts",s);'
           grep -n "projectId" app.config.ts
-          grep -q "$PID" app.config.ts
-          echo "✅ app.config.ts now points to your own EAS project"
+          grep -qE "projectId: ['\"]$NEW_PID['\"]" app.config.ts || { echo "❌ projectId was not written correctly"; exit 1; }
           git config user.email "ci@cherry-build.local"
           git config user.name "Cherry CI"
           git add -A
           git commit -m "chore: link EAS project" --no-verify || true
+          git push origin HEAD:main || true
 
       # Step 9: Build Android on EAS
       - name: Build Android on EAS
