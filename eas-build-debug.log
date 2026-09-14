@@ -1,0 +1,6 @@
+=== EXIT CODE: 1 ===
+=== STDERR ===
+/home/runner/work/cherry-studio-app/cherry-studio-app/node_modules/expo/bin/cli config --json exited with non-zero code: 1
+    Error: build command failed.
+=== STDOUT ===
+
