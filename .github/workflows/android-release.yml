@@ -85,20 +85,27 @@ jobs:
       # Step 8.5: Register this fork as a new EAS project under your own account
       - name: Initialize EAS project
         run: |
-          ACCOUNT=$(eas whoami | head -n 1 | tr -d '\r\n ')
+          WHOAMI_OUT=$(eas whoami 2>&1 || true)
+          echo "$WHOAMI_OUT"
+          ACCOUNT=$(printf '%s' "$WHOAMI_OUT" | head -n 1 | tr -d '[:space:]')
+          if [ -z "$ACCOUNT" ]; then
+            echo "❌ Could not determine Expo account name"
+            exit 1
+          fi
           echo "Expo account: $ACCOUNT"
           node -e "const fs=require('fs');let s=fs.readFileSync('app.config.ts','utf8');s=s.replace(/projectId:\s*'[^']*'/, 'projectId: undefined');fs.writeFileSync('app.config.ts',s);"
-          set +e
-          INIT_OUT=$(eas init --account "$ACCOUNT" --non-interactive --force 2>&1)
-          set -e
+          INIT_OUT=$(eas init --account "$ACCOUNT" --non-interactive --force 2>&1 || true)
           echo "$INIT_OUT"
-          PID=$(echo "$INIT_OUT" | grep -oE '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}' | tail -n 1)
+          PID=$(printf '%s' "$INIT_OUT" | grep -oE '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}' | tail -n 1 || true)
           if [ -z "$PID" ]; then
-            echo "❌ eas init did not produce a new project ID"
+            echo "❌ eas init did not produce a new project ID — see output above"
             exit 1
           fi
           echo "✅ New EAS project ID: $PID"
           node -e "const fs=require('fs');let s=fs.readFileSync('app.config.ts','utf8');s=s.replace(/projectId:\s*undefined/, 'projectId: $PID');fs.writeFileSync('app.config.ts',s);"
+          grep -n "projectId" app.config.ts
+          grep -q "$PID" app.config.ts
+          echo "✅ app.config.ts now points to your own EAS project"
 
       # Step 9: Build Android on EAS
       - name: Build Android on EAS
