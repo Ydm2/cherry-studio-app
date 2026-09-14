@@ -82,9 +82,23 @@ jobs:
       #     echo "APP_VERSION=$VERSION_NUMBER" >> $GITHUB_ENV
       #     echo "✅ APP_VERSION set to $VERSION_NUMBER"
 
-      # Step 8.5: Register this fork as a new EAS project
+      # Step 8.5: Register this fork as a new EAS project under your own account
       - name: Initialize EAS project
-        run: eas init --non-interactive
+        run: |
+          ACCOUNT=$(eas whoami | head -n 1 | tr -d '\r\n ')
+          echo "Expo account: $ACCOUNT"
+          node -e "const fs=require('fs');let s=fs.readFileSync('app.config.ts','utf8');s=s.replace(/projectId:\s*'[^']*'/, 'projectId: undefined');fs.writeFileSync('app.config.ts',s);"
+          set +e
+          INIT_OUT=$(eas init --account "$ACCOUNT" --non-interactive --force 2>&1)
+          set -e
+          echo "$INIT_OUT"
+          PID=$(echo "$INIT_OUT" | grep -oE '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}' | tail -n 1)
+          if [ -z "$PID" ]; then
+            echo "❌ eas init did not produce a new project ID"
+            exit 1
+          fi
+          echo "✅ New EAS project ID: $PID"
+          node -e "const fs=require('fs');let s=fs.readFileSync('app.config.ts','utf8');s=s.replace(/projectId:\s*undefined/, 'projectId: $PID');fs.writeFileSync('app.config.ts',s);"
 
       # Step 9: Build Android on EAS
       - name: Build Android on EAS
