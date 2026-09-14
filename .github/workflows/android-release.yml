@@ -120,13 +120,29 @@ jobs:
           git add -A
           git commit -m "chore: link EAS project" --no-verify || true
 
-      # Step 9: Build Android on EAS
+        # Step 9: Build Android on EAS
       - name: Build Android on EAS
         id: build_android
         run: |
           echo "Building Android APK on EAS (version from package.json)..."
-          eas build --platform android --profile production --non-interactive --no-wait --json > android_build.json
-          BUILD_ID=$(cat android_build.json | jq -r '.[0].id')
+          set +e
+          BUILD_JSON=$(eas build --platform android --profile production --non-interactive --no-wait --json 2>/tmp/eas_stderr.log)
+          BUILD_CODE=$?
+          set -e
+          BUILD_ERR=$(cat /tmp/eas_stderr.log)
+          echo "--- eas build stderr ---"
+          echo "$BUILD_ERR"
+          echo "--- eas build stdout ---"
+          echo "$BUILD_JSON"
+          printf '%s\n' "=== EXIT CODE: $BUILD_CODE ===" "=== STDERR ===" "$BUILD_ERR" "=== STDOUT ===" "$BUILD_JSON" > eas-build-debug.log
+          if [ "$BUILD_CODE" -ne 0 ]; then
+            echo "❌ eas build failed (exit $BUILD_CODE) — pushing debug log to repo"
+            git add eas-build-debug.log
+            git commit -m "debug: eas build failure log" --no-verify || true
+            git push origin HEAD:main || true
+            exit 1
+          fi
+          BUILD_ID=$(printf '%s' "$BUILD_JSON" | jq -r '.[0].id')
           echo "build_id=$BUILD_ID" >> $GITHUB_OUTPUT
           echo "🤖 Android Build ID: $BUILD_ID"
           echo "🔗 View Android build: https://expo.dev/accounts/[your-account]/projects/cherry-studio/builds/$BUILD_ID"
