@@ -85,14 +85,21 @@ jobs:
       # Step 8.5: Register this fork as a new EAS project under your own account
       - name: Initialize EAS project
         run: |
+          ACCOUNT_OVERRIDE=""
           WHOAMI_OUT=$(eas whoami 2>&1 || true)
           echo "$WHOAMI_OUT"
-          ACCOUNT=$(printf '%s' "$WHOAMI_OUT" | head -n 1 | tr -d '[:space:]')
+          ACCOUNT="$ACCOUNT_OVERRIDE"
+          if [ -z "$ACCOUNT" ]; then
+            ACCOUNT=$(printf '%s' "$WHOAMI_OUT" | grep -A1 '^Accounts:' | tail -n 1 | sed 's/^[^A-Za-z0-9]*//' | cut -d' ' -f1 | tr -cd 'A-Za-z0-9_-')
+          fi
+          if [ -z "$ACCOUNT" ]; then
+            ACCOUNT=$(printf '%s' "$WHOAMI_OUT" | head -n 1 | sed 's/ .*//')
+          fi
           if [ -z "$ACCOUNT" ]; then
             echo "❌ Could not determine Expo account name"
             exit 1
           fi
-          echo "Expo account: $ACCOUNT"
+          echo "Using Expo account: $ACCOUNT"
           node -e "const fs=require('fs');let s=fs.readFileSync('app.config.ts','utf8');s=s.replace(/projectId:\s*'[^']*'/, 'projectId: undefined');fs.writeFileSync('app.config.ts',s);"
           INIT_OUT=$(eas init --account "$ACCOUNT" --non-interactive --force 2>&1 || true)
           echo "$INIT_OUT"
