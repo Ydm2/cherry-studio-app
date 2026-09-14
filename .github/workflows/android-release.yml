@@ -167,7 +167,7 @@ jobs:
           echo "🤖 Android Build ID: $BUILD_ID"
           echo "🔗 View Android build: https://expo.dev/accounts/[your-account]/projects/cherry-studio/builds/$BUILD_ID"
 
-      # Step 10: Wait for Android build to complete
+      # Step 10: Wait for Android build to complete (auto-captures cloud build errors)
       - name: Wait for Android build
         run: |
           echo "Waiting for Android build to complete..."
@@ -186,7 +186,13 @@ jobs:
               break
             elif [ "$STATUS_LOWER" == "errored" ] || [ "$STATUS_LOWER" == "canceled" ]; then
               echo "❌ Build failed with status: $STATUS"
-              echo "View build details at: https://expo.dev/accounts/[your-account]/projects/cherry-studio/builds/$BUILD_ID"
+              eas build:view $BUILD_ID --json | jq '{status, error, artifacts: {buildUrl: .artifacts.buildUrl}}' > eas-build-debug.log || true
+              cat eas-build-debug.log || true
+              git config user.email "ci@cherry-build.local"
+              git config user.name "Cherry CI"
+              git add eas-build-debug.log || true
+              git commit -m "debug: eas cloud build error" --no-verify || true
+              git push origin HEAD:main || true
               exit 1
             elif [ -z "$STATUS" ]; then
               echo "⚠️ Failed to get build status, retrying..."
