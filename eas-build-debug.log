@@ -1,6 +1,20 @@
-=== EXIT CODE: 1 ===
-=== STDERR ===
-/home/runner/work/cherry-studio-app/cherry-studio-app/node_modules/expo/bin/cli config --json exited with non-zero code: 1
+=== ENV ===
+v20.20.2
+node_modules packages: 1068
+pnpm store packages: 1
+node_modules/expo/bin/cli
+=== expo config direct test (exit 0) ===
+--- stderr ---
+--- stdout bytes: 5582 ---
+=== eas build (exit 1) ===
+--- stderr ---
+Resolved "production" environment for the build. Learn more: https://docs.expo.dev/eas/environment-variables/#setting-the-environment-for-your-builds
+No environment variables with visibility "Plain text" and "Sensitive" found for the "production" environment on EAS.
+Environment variables loaded from the "production" build profile "env" configuration: PROFILE.
+
+
+
+autoIncrement option is not supported when using app.config.js
     Error: build command failed.
-=== STDOUT ===
+--- stdout ---
 
