@@ -82,6 +82,10 @@ jobs:
       #     echo "APP_VERSION=$VERSION_NUMBER" >> $GITHUB_ENV
       #     echo "✅ APP_VERSION set to $VERSION_NUMBER"
 
+      # Step 8.5: Register this fork as a new EAS project
+      - name: Initialize EAS project
+        run: eas init --non-interactive
+
       # Step 9: Build Android on EAS
       - name: Build Android on EAS
         id: build_android
